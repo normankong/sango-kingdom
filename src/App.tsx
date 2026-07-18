@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CmdResult } from "./engine/commands.ts";
 import { OFFICER_DEFS } from "./engine/data/officers.ts";
 import { SCENARIO_190, SCENARIOS } from "./engine/data/scenario190.ts";
+import type { ScenarioDef } from "./engine/data/scenario190.ts";
 import { newGame } from "./engine/newGame.ts";
 import { endTurn } from "./engine/turn.ts";
 import type { GameState } from "./engine/types.ts";
@@ -81,8 +82,8 @@ export function App() {
         saves={saves}
         backend={provider.name}
         cloud={firebaseAvailable()}
-        onNewGame={(rulerId) => {
-          const gs = newGame(SCENARIO_190, rulerId);
+        onNewGame={(scenario, rulerId) => {
+          const gs = newGame(scenario, rulerId);
           setState(gs);
           setSelectedCityId(
             Object.values(gs.cities).find((c) => c.rulerId === rulerId)?.id ?? null,
@@ -160,10 +161,13 @@ function TitleScreen(props: {
   saves: SaveMeta[];
   backend: string;
   cloud: boolean;
-  onNewGame: (rulerId: number) => void;
+  onNewGame: (scenario: ScenarioDef, rulerId: number) => void;
   onLoad: (slot: string) => void;
 }) {
-  const forces = SCENARIOS[SCENARIO_190.id].forces;
+  const scenarios = Object.values(SCENARIOS);
+  const [scenarioId, setScenarioId] = useState(SCENARIO_190.id);
+  const scenario = SCENARIOS[scenarioId];
+
   return (
     <div className="title-screen">
       <h1>三國志</h1>
@@ -171,12 +175,20 @@ function TitleScreen(props: {
         Sango Kingdom — a web remake of Romance of the Three Kingdoms III ·{" "}
         {props.cloud ? "☁ Firebase cloud saves" : "saves in browser storage (Firebase not configured)"}
       </div>
-      <div className="sub">{SCENARIO_190.name} — choose your ruler:</div>
+      <div className="cmd-row">
+        <label>Scenario:</label>
+        <select value={scenarioId} onChange={(e) => setScenarioId(e.target.value)}>
+          {scenarios.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
+      </div>
+      <div className="sub">{scenario.name} — choose your ruler:</div>
       <div className="force-grid">
-        {forces.map((f) => {
+        {scenario.forces.map((f) => {
           const d = OFFICER_DEFS[f.rulerId];
           return (
-            <button key={f.rulerId} className="force-card" onClick={() => props.onNewGame(f.rulerId)}>
+            <button key={f.rulerId} className="force-card" onClick={() => props.onNewGame(scenario, f.rulerId)}>
               <div className="name">
                 <span className="dot" style={{ background: f.color }} />
                 {d.han} {d.name}

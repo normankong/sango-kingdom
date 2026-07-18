@@ -13,7 +13,7 @@ existing per-officer-command loop without requiring a new UI paradigm.
 | Command group | Status |
 |---|---|
 | 46-city map with land/naval adjacency graph | ✅ SVG map, clickable cities |
-| One scenario (190 AD — Coalition Against Dong Zhuo, 19 forces, 90 officers) | ✅ |
+| Two scenarios (190 AD Coalition, 200 AD Prelude to Guandu), selectable at the title screen | ✅ |
 | One-command-per-officer-per-month action economy | ✅ |
 | Development: Land, Cultivation, Flood Control, Economy, Tax Rate | ✅ |
 | Military: Draft (10g+100f per 100), Train, Move, War (auto-resolved) | ✅ |
@@ -32,7 +32,7 @@ existing per-officer-command loop without requiring a new UI paradigm.
 **Still deferred to V1** (per the design doc): the tactical battle grid (unit types,
 terrain, duels, tactics like Fire/Confuse) — a separate UI subsystem, not just a rules
 extension — plus Hide Infiltrator/Rival/Rebel plots, items, galleys, the remaining five
-scenarios, and the full historical officer roster.
+remaining four scenarios, and the full historical officer roster.
 
 **Data fidelity note:** city list/adjacency, officer stats, and formulas are close
 approximations of the original, pending the `[Verify]` research passes called out in the
@@ -81,7 +81,7 @@ Deploy with `firebase deploy` after `npm run build` (Hosting root: `dist/`), or 
 ```
 src/
   engine/        pure TypeScript simulation — no DOM, no Firebase, unit-tested
-    data/        cities (46 + adjacency), officers (90), scenario definitions
+    data/        cities (46 + adjacency), officers (91), scenario definitions (190/200 AD)
     newGame.ts   initial state from a scenario
     commands.ts  develop/draft/train/move/search/reward/war/market/emergency/personnel
     diplomacy.ts Ally/Truce/Threat/Revoke + relation lookups the AI consults

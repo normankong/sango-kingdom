@@ -14,7 +14,7 @@ import {
 } from "./commands.ts";
 import { CITY_COUNT, CITY_DEFS } from "./data/cities.ts";
 import { OFFICER_DEFS } from "./data/officers.ts";
-import { SCENARIO_190 } from "./data/scenario190.ts";
+import { SCENARIO_190, SCENARIOS } from "./data/scenario190.ts";
 import { autoGovernCity } from "./ai.ts";
 import { getRelation, proposeAlliance, proposeTruce, relKey, revokeAgreement, threaten } from "./diplomacy.ts";
 import { newGame } from "./newGame.ts";
@@ -52,11 +52,11 @@ describe("map data", () => {
   });
 });
 
-describe("scenario 190", () => {
+describe.each(Object.values(SCENARIOS))("scenario $id ($name)", (scenario) => {
   it("every force city and officer exists, no overlaps", () => {
     const cityOwners = new Map<number, number>();
     const officerOwners = new Map<number, number>();
-    for (const f of SCENARIO_190.forces) {
+    for (const f of scenario.forces) {
       expect(OFFICER_DEFS[f.rulerId]).toBeDefined();
       for (const c of f.cities) {
         expect(CITY_DEFS[c]).toBeDefined();
@@ -70,8 +70,18 @@ describe("scenario 190", () => {
       }
       expect(f.officerIds).toContain(f.rulerId);
     }
-    for (const [oid] of Object.entries(SCENARIO_190.freeOfficers)) {
+    for (const [oid] of Object.entries(scenario.freeOfficers)) {
       expect(officerOwners.has(Number(oid))).toBe(false);
+      expect(OFFICER_DEFS[Number(oid)]).toBeDefined();
+    }
+  });
+
+  it("a new game can be created and played a few months without corruption", () => {
+    const gs = newGame(scenario, scenario.forces[0].rulerId, 11);
+    for (let i = 0; i < 6 && !gs.gameOver; i++) endTurn(gs);
+    for (const c of Object.values(gs.cities)) {
+      expect(c.soldiers).toBeGreaterThanOrEqual(0);
+      expect(c.gold).toBeGreaterThanOrEqual(0);
     }
   });
 });

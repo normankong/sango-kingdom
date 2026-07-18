@@ -118,6 +118,8 @@ const RAW: O[] = [
   [88, "Xu Huang", "徐晃", 90, 65, 55, 58, 86, 52, 169],
   [89, "Man Chong", "滿寵", 55, 82, 84, 58, 68, 50, 165],
   [90, "Liu Ye", "劉曄", 40, 90, 82, 62, 66, 48, 168],
+  // --- Added for the 200 AD scenario: Liu Yan died in 194, succeeded by his son ---
+  [91, "Liu Zhang", "劉璋", 20, 40, 45, 50, 35, 20, 162],
 ];
 
 export const OFFICER_DEFS: Record<number, OfficerDef> = Object.fromEntries(

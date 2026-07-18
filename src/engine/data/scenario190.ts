@@ -1,4 +1,5 @@
 import type { RulerDef } from "../types.ts";
+import { SCENARIO_200 } from "./scenario200.ts";
 
 // Scenario: 190 AD — "The Coalition Against Dong Zhuo".
 // Force layouts approximate the original scenario ([Verify] §9).
@@ -66,4 +67,5 @@ export const SCENARIO_190: ScenarioDef = {
 
 export const SCENARIOS: Record<string, ScenarioDef> = {
   [SCENARIO_190.id]: SCENARIO_190,
+  [SCENARIO_200.id]: SCENARIO_200,
 };
