@@ -27,6 +27,8 @@ export interface CityState {
   taxRate: number; // 0–100
   support: number; // 0–100 popular support
   training: number; // 0–100 garrison training level
+  equipment: number; // 0–9999, armament stock — a passive combat bonus
+  autoGovern: boolean; // Delegate: let the AI run this city's domestic orders
 }
 
 export type OfficerStatus = "available" | "done" | "busy" | "sick";
@@ -63,6 +65,14 @@ export interface RulerState {
   alive: boolean;
 }
 
+export type DiplomaticStatus = "neutral" | "allied" | "truce";
+
+export interface DiplomaticRelation {
+  status: DiplomaticStatus;
+  /** only set while status === "truce" */
+  truceUntil?: TurnDate;
+}
+
 export interface TurnDate {
   year: number;
   month: number; // 1–12
@@ -89,6 +99,8 @@ export interface GameState {
   cities: Record<number, CityState>;
   officers: Record<number, OfficerState>;
   rulers: Record<number, RulerState>;
+  /** keyed by relKey(rulerA, rulerB) — see diplomacy.ts */
+  diplomacy: Record<string, DiplomaticRelation>;
   rngSeed: number;
   log: LogEntry[];
   gameOver: "victory" | "defeat" | null;

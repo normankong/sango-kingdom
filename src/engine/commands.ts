@@ -192,9 +192,12 @@ function armyPower(
   soldiers: number,
   training: number,
   bestCmd: number,
+  equipment: number,
   luck: number,
 ): number {
-  return soldiers * (0.8 + bestCmd / 100) * (0.5 + training / 200) * luck;
+  return (
+    soldiers * (0.8 + bestCmd / 100) * (0.5 + training / 200) * (1 + equipment / 20_000) * luck
+  );
 }
 
 /** War: invade an adjacent city. Auto-resolved for the MVP (§11). */
@@ -225,11 +228,11 @@ export function war(
       ? Math.max(...defOfficers.map((o) => OFFICER_DEFS[o.id].armyCmd))
       : 30;
 
-    const atkPower = armyPower(soldiers, from.training, atkCmd, 0.9 + rng.f() * 0.2);
+    const atkPower = armyPower(soldiers, from.training, atkCmd, from.equipment, 0.9 + rng.f() * 0.2);
     // Defenders fight behind walls: 25% bonus.
     const defPower =
       to.soldiers > 0
-        ? armyPower(to.soldiers, to.training, defCmd, 0.9 + rng.f() * 0.2) * 1.25
+        ? armyPower(to.soldiers, to.training, defCmd, to.equipment, 0.9 + rng.f() * 0.2) * 1.25
         : 0;
 
     const attackerWon = atkPower > defPower;
@@ -321,4 +324,97 @@ export function war(
       return { ok: true, message: `Defeat... the assault on ${CITY_DEFS[toCityId].name} failed.`, battle: report };
     }
   });
+}
+
+// --- Market (§5): Buy/Sell Food, Buy Arms. Prices are a flat spread rather
+// than a fluctuating market, which the original models more richly. ---
+
+const FOOD_BUY_PRICE = 0.12; // gold per unit of food
+const FOOD_SELL_PRICE = 0.06; // gold per unit of food (spread discourages arbitrage)
+const EQUIPMENT_PRICE = 4; // gold per unit of equipment
+
+export function buyFood(state: GameState, cityId: number, officerId: number, amount: number): CmdResult {
+  const city = state.cities[cityId];
+  amount = Math.max(0, Math.floor(amount));
+  const cost = Math.round(amount * FOOD_BUY_PRICE);
+  if (amount <= 0) return { ok: false, message: "Nothing to buy." };
+  if (city.gold < cost) return { ok: false, message: `Not enough gold (need ${cost}).` };
+  city.gold -= cost;
+  city.food = clamp(city.food + amount, 0, 3_000_000);
+  useOfficer(state, officerId);
+  return { ok: true, message: `Bought ${amount.toLocaleString()} food for ${cost} gold.` };
+}
+
+export function sellFood(state: GameState, cityId: number, officerId: number, amount: number): CmdResult {
+  const city = state.cities[cityId];
+  amount = clamp(Math.floor(amount), 0, city.food);
+  if (amount <= 0) return { ok: false, message: "Nothing to sell." };
+  const gain = Math.round(amount * FOOD_SELL_PRICE);
+  city.food -= amount;
+  city.gold = clamp(city.gold + gain, 0, 50_000);
+  useOfficer(state, officerId);
+  return { ok: true, message: `Sold ${amount.toLocaleString()} food for ${gain} gold.` };
+}
+
+export function buyEquipment(state: GameState, cityId: number, officerId: number, amount: number): CmdResult {
+  const city = state.cities[cityId];
+  amount = Math.max(0, Math.floor(amount));
+  const cost = Math.round(amount * EQUIPMENT_PRICE);
+  if (amount <= 0) return { ok: false, message: "Nothing to buy." };
+  if (city.gold < cost) return { ok: false, message: `Not enough gold (need ${cost}).` };
+  if (city.equipment >= 9999) return { ok: false, message: "Armory is already full." };
+  city.gold -= cost;
+  city.equipment = clamp(city.equipment + amount, 0, 9999);
+  useOfficer(state, officerId);
+  return { ok: true, message: `Bought ${amount.toLocaleString()} arms for ${cost} gold.` };
+}
+
+// --- Emergency (§5): Special Tax. An immediate levy outside the normal
+// January collection, at the cost of popular support. ---
+
+export function specialTax(state: GameState, cityId: number, officerId: number): CmdResult {
+  const city = state.cities[cityId];
+  return withRng(state, (rng) => {
+    const amount = Math.round(city.economy * 0.15 + rng.i(0, 50));
+    city.gold = clamp(city.gold + amount, 0, 50_000);
+    city.support = clamp(city.support - (8 + rng.i(0, 6)), 0, 100);
+    useOfficer(state, officerId);
+    return { ok: true, message: `Levied a special tax: +${amount} gold (support fell).` };
+  });
+}
+
+// --- Personnel (§5): Delegate, Fire, Appoint. These are administrative and
+// don't consume an officer's monthly action, matching setTaxRate. ---
+
+export function setAutoGovern(state: GameState, cityId: number, enabled: boolean): CmdResult {
+  state.cities[cityId].autoGovern = enabled;
+  return {
+    ok: true,
+    message: enabled
+      ? `${CITY_DEFS[cityId].name} will now be governed automatically.`
+      : `${CITY_DEFS[cityId].name} is back under direct control.`,
+  };
+}
+
+/** Dismiss one of your own officers back into the free pool. */
+export function fireOfficer(state: GameState, targetOfficerId: number): CmdResult {
+  const target = state.officers[targetOfficerId];
+  if (target.rulerId === null) return { ok: false, message: "That officer is already free." };
+  if (target.id === target.rulerId)
+    return { ok: false, message: "The ruler cannot fire themself." };
+  const name = OFFICER_DEFS[targetOfficerId].name;
+  target.rulerId = null;
+  target.loyalty = 50;
+  target.status = "available";
+  return { ok: true, message: `${name} has been dismissed from service.` };
+}
+
+/** Appoint a stationed officer as the city's governor. */
+export function appointGovernor(state: GameState, cityId: number, targetOfficerId: number): CmdResult {
+  const city = state.cities[cityId];
+  const target = state.officers[targetOfficerId];
+  if (target.cityId !== cityId || target.rulerId !== city.rulerId)
+    return { ok: false, message: "That officer is not stationed here." };
+  city.governorId = targetOfficerId;
+  return { ok: true, message: `${OFFICER_DEFS[targetOfficerId].name} appointed governor of ${CITY_DEFS[cityId].name}.` };
 }

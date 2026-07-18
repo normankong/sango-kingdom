@@ -2,6 +2,7 @@ import { develop, draft, search, train, war } from "./commands.ts";
 import { CITY_DEFS } from "./data/cities.ts";
 import { OFFICER_DEFS } from "./data/officers.ts";
 import { SCENARIOS } from "./data/scenario190.ts";
+import { getRelation, proposeAlliance } from "./diplomacy.ts";
 import { Rng } from "./rng.ts";
 import type { CityState, GameState, OfficerState } from "./types.ts";
 
@@ -20,10 +21,45 @@ function cityPower(c: CityState): number {
   return c.soldiers * (0.5 + c.training / 200);
 }
 
+function totalSoldiers(state: GameState, rulerId: number): number {
+  return Object.values(state.cities)
+    .filter((c) => c.rulerId === rulerId)
+    .reduce((sum, c) => sum + c.soldiers, 0);
+}
+
+/** Builder-minded rulers occasionally seek an alliance with a much stronger neighbor. */
+function considerAlliance(state: GameState, rulerId: number, rng: Rng, p: ReturnType<typeof persona>) {
+  if (p === "aggressive" || !rng.chance(0.08)) return;
+  const myStrength = totalSoldiers(state, rulerId);
+  const myCities = Object.values(state.cities).filter((c) => c.rulerId === rulerId);
+  const neighborIds = new Set<number>();
+  for (const c of myCities) {
+    for (const n of CITY_DEFS[c.id].adjacency) {
+      const nr = state.cities[n].rulerId;
+      if (nr !== null && nr !== rulerId && getRelation(state, rulerId, nr) === "neutral") {
+        neighborIds.add(nr);
+      }
+    }
+  }
+  for (const targetId of neighborIds) {
+    if (totalSoldiers(state, targetId) < myStrength * 1.8) continue;
+    const envoy = Object.values(state.officers)
+      .filter((o) => o.rulerId === rulerId && o.status === "available")
+      .sort((a, b) => OFFICER_DEFS[b.id].chr - OFFICER_DEFS[a.id].chr)[0];
+    if (!envoy) return;
+    state.rngSeed = rng.seed;
+    proposeAlliance(state, envoy.id, targetId);
+    rng.seed = state.rngSeed;
+    return;
+  }
+}
+
 export function aiTakeTurn(state: GameState, rulerId: number) {
   const rng = new Rng(state.rngSeed);
   const p = persona(state, rulerId);
   const threshold = ATTACK_THRESHOLD[p];
+
+  considerAlliance(state, rulerId, rng, p);
 
   const myCities = () =>
     Object.values(state.cities).filter((c) => c.rulerId === rulerId);
@@ -35,10 +71,14 @@ export function aiTakeTurn(state: GameState, rulerId: number) {
     );
     if (stationed.length === 0) continue;
 
-    // 1) Consider invading the weakest adjacent non-friendly city.
+    // 1) Consider invading the weakest adjacent non-friendly, non-allied city.
     const targets = CITY_DEFS[city.id].adjacency
       .map((id) => state.cities[id])
-      .filter((c) => c.rulerId !== rulerId);
+      .filter(
+        (c) =>
+          c.rulerId !== rulerId &&
+          (c.rulerId === null || getRelation(state, rulerId, c.rulerId) === "neutral"),
+      );
     if (targets.length > 0 && city.soldiers > 3000) {
       const weakest = targets.reduce((a, b) => (cityPower(a) < cityPower(b) ? a : b));
       const myPower = cityPower(city);
@@ -67,6 +107,20 @@ export function aiTakeTurn(state: GameState, rulerId: number) {
     }
   }
 
+  state.rngSeed = rng.seed;
+}
+
+/** Used by turn.ts to run domestic orders for Delegated (auto-governed) player cities. */
+export function autoGovernCity(state: GameState, cityId: number) {
+  const rng = new Rng(state.rngSeed);
+  const city = state.cities[cityId];
+  const stationed = Object.values(state.officers).filter(
+    (o) => o.cityId === cityId && o.rulerId === city.rulerId && o.status === "available",
+  );
+  for (const off of stationed) {
+    if (state.officers[off.id].status !== "available") continue;
+    aiDomestic(state, city, off, rng);
+  }
   state.rngSeed = rng.seed;
 }
 

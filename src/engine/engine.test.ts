@@ -1,9 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { develop, draft, train, war } from "./commands.ts";
+import {
+  appointGovernor,
+  buyEquipment,
+  buyFood,
+  develop,
+  draft,
+  fireOfficer,
+  sellFood,
+  setAutoGovern,
+  specialTax,
+  train,
+  war,
+} from "./commands.ts";
 import { CITY_COUNT, CITY_DEFS } from "./data/cities.ts";
 import { OFFICER_DEFS } from "./data/officers.ts";
 import { SCENARIO_190 } from "./data/scenario190.ts";
+import { autoGovernCity } from "./ai.ts";
+import { getRelation, proposeAlliance, proposeTruce, relKey, revokeAgreement, threaten } from "./diplomacy.ts";
 import { newGame } from "./newGame.ts";
+import { bribe, forgeLetter } from "./plots.ts";
 import { endTurn } from "./turn.ts";
 
 describe("map data", () => {
@@ -122,5 +137,150 @@ describe("game flow", () => {
         expect(gs.cities[o.cityId]).toBeDefined();
       }
     }
+  });
+});
+
+describe("diplomacy", () => {
+  it("relations can be set, read symmetrically, and revoked", () => {
+    const gs = newGame(SCENARIO_190, 10, 1);
+    gs.diplomacy[relKey(10, 17)] = { status: "allied" };
+    expect(getRelation(gs, 10, 17)).toBe("allied");
+    expect(getRelation(gs, 17, 10)).toBe("allied");
+    const r = revokeAgreement(gs, 11, 17);
+    expect(r.ok).toBe(true);
+    expect(getRelation(gs, 10, 17)).toBe("neutral");
+  });
+
+  it("proposeAlliance and proposeTruce consume the envoy's turn regardless of outcome", () => {
+    const gs = newGame(SCENARIO_190, 10, 1);
+    expect(gs.officers[11].status).toBe("available");
+    proposeAlliance(gs, 11, 17);
+    expect(gs.officers[11].status).toBe("done");
+
+    const gs2 = newGame(SCENARIO_190, 10, 2);
+    proposeTruce(gs2, 12, 17, 6);
+    expect(gs2.officers[12].status).toBe("done");
+  });
+
+  it("a successful alliance eventually forms across seeds", () => {
+    let allied = false;
+    for (let seed = 1; seed <= 40 && !allied; seed++) {
+      const gs = newGame(SCENARIO_190, 10, seed);
+      proposeAlliance(gs, 11, 17);
+      allied = getRelation(gs, 10, 17) === "allied";
+    }
+    expect(allied).toBe(true);
+  });
+
+  it("threaten refuses to target your own ruler", () => {
+    const gs = newGame(SCENARIO_190, 10, 1);
+    expect(threaten(gs, 11, 10).ok).toBe(false);
+  });
+});
+
+describe("plots", () => {
+  it("bribe requires the target to be a rival's officer and enough gold", () => {
+    const gs = newGame(SCENARIO_190, 10, 1);
+    gs.cities[10].gold = 5000;
+    expect(bribe(gs, 11, 12).ok).toBe(false); // 12 is already Cao Cao's own officer
+
+    gs.cities[10].gold = 0;
+    expect(bribe(gs, 11, 18).ok).toBe(false); // 18 (Yan Liang) is a rival, but no gold
+  });
+
+  it("bribe can turn a rival officer given enough attempts", () => {
+    let defected = false;
+    for (let seed = 1; seed <= 60 && !defected; seed++) {
+      const gs = newGame(SCENARIO_190, 10, seed);
+      gs.cities[10].gold = 50_000;
+      const target = gs.officers[18]; // Yan Liang, Yuan Shao's officer
+      bribe(gs, 11, 18);
+      defected = target.rulerId === 10;
+    }
+    expect(defected).toBe(true);
+  });
+
+  it("forgeLetter can lower a rival officer's loyalty", () => {
+    let dropped = false;
+    for (let seed = 1; seed <= 60 && !dropped; seed++) {
+      const gs = newGame(SCENARIO_190, 10, seed);
+      gs.cities[10].gold = 5000;
+      const before = gs.officers[18].loyalty;
+      forgeLetter(gs, 11, 18);
+      dropped = gs.officers[18].loyalty < before;
+    }
+    expect(dropped).toBe(true);
+  });
+});
+
+describe("market, emergency & personnel", () => {
+  it("buyFood/sellFood/buyEquipment move gold and resources correctly", () => {
+    const gs = newGame(SCENARIO_190, 10, 1);
+    const city = gs.cities[10];
+    city.gold = 1000;
+    city.food = 1000;
+    city.equipment = 0;
+
+    expect(buyFood(gs, 10, 11, 500).ok).toBe(true);
+    expect(city.food).toBe(1500);
+    expect(city.gold).toBe(1000 - Math.round(500 * 0.12));
+
+    const goldAfterBuy = city.gold;
+    expect(sellFood(gs, 10, 12, 200).ok).toBe(true);
+    expect(city.food).toBe(1300);
+    expect(city.gold).toBe(goldAfterBuy + Math.round(200 * 0.06));
+
+    const goldAfterSell = city.gold;
+    expect(buyEquipment(gs, 10, 13, 50).ok).toBe(true);
+    expect(city.equipment).toBe(50);
+    expect(city.gold).toBe(goldAfterSell - 50 * 4);
+  });
+
+  it("specialTax raises gold and lowers support, consuming the officer", () => {
+    const gs = newGame(SCENARIO_190, 10, 1);
+    const city = gs.cities[10];
+    const goldBefore = city.gold;
+    const supportBefore = city.support;
+    const r = specialTax(gs, 10, 11);
+    expect(r.ok).toBe(true);
+    expect(city.gold).toBeGreaterThan(goldBefore);
+    expect(city.support).toBeLessThan(supportBefore);
+    expect(gs.officers[11].status).toBe("done");
+  });
+
+  it("setAutoGovern toggles delegation without consuming an officer", () => {
+    const gs = newGame(SCENARIO_190, 10, 1);
+    expect(gs.cities[10].autoGovern).toBe(false);
+    setAutoGovern(gs, 10, true);
+    expect(gs.cities[10].autoGovern).toBe(true);
+  });
+
+  it("fireOfficer frees an officer but refuses to fire the ruler", () => {
+    const gs = newGame(SCENARIO_190, 10, 1);
+    expect(fireOfficer(gs, 10).ok).toBe(false);
+    expect(fireOfficer(gs, 12).ok).toBe(true);
+    expect(gs.officers[12].rulerId).toBeNull();
+  });
+
+  it("appointGovernor requires the target be stationed in that city", () => {
+    const gs = newGame(SCENARIO_190, 10, 1);
+    expect(appointGovernor(gs, 10, 12).ok).toBe(true);
+    expect(gs.cities[10].governorId).toBe(12);
+    expect(appointGovernor(gs, 10, 18).ok).toBe(false); // 18 belongs to Yuan Shao
+  });
+});
+
+describe("delegation", () => {
+  it("autoGovernCity spends idle officers' turns on domestic orders", () => {
+    const gs = newGame(SCENARIO_190, 10, 5);
+    const before = Object.values(gs.officers).filter(
+      (o) => o.cityId === 10 && o.rulerId === 10 && o.status === "available",
+    ).length;
+    expect(before).toBeGreaterThan(0);
+    autoGovernCity(gs, 10);
+    const after = Object.values(gs.officers).filter(
+      (o) => o.cityId === 10 && o.rulerId === 10 && o.status === "available",
+    ).length;
+    expect(after).toBeLessThan(before);
   });
 });

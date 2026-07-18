@@ -1,9 +1,10 @@
 import { clamp, log } from "./commands.ts";
 import { CITY_DEFS } from "./data/cities.ts";
 import { OFFICER_DEFS } from "./data/officers.ts";
+import { expireTruces } from "./diplomacy.ts";
 import { Rng } from "./rng.ts";
 import type { GameState } from "./types.ts";
-import { aiTakeTurn } from "./ai.ts";
+import { aiTakeTurn, autoGovernCity } from "./ai.ts";
 
 // Monthly settlement per §10 of the design doc:
 // January — gold tax + gold salaries. July — harvest + food salaries,
@@ -123,6 +124,14 @@ function cityName(_state: GameState, id: number): string {
 export function endTurn(state: GameState) {
   if (state.gameOver) return;
 
+  // Delegated player cities: run domestic orders for any officer the player
+  // left idle there this month.
+  for (const city of Object.values(state.cities)) {
+    if (city.autoGovern && city.rulerId === state.playerRulerId) {
+      autoGovernCity(state, city.id);
+    }
+  }
+
   for (const ruler of Object.values(state.rulers)) {
     if (!ruler.alive || ruler.id === state.playerRulerId) continue;
     aiTakeTurn(state, ruler.id);
@@ -139,6 +148,7 @@ export function endTurn(state: GameState) {
     state.date.month = 1;
     state.date.year += 1;
   }
+  expireTruces(state);
   for (const o of Object.values(state.officers)) {
     if (o.status === "done") o.status = "available";
   }

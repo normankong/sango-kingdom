@@ -36,6 +36,8 @@ export function newGame(
       taxRate: 50,
       support: owned ? 50 + rng.i(0, 20) : 40 + rng.i(0, 20),
       training: owned ? 40 + rng.i(0, 25) : 0,
+      equipment: owned ? 200 + rng.i(0, 300) : 0,
+      autoGovern: false,
     };
   }
 
@@ -75,6 +77,7 @@ export function newGame(
     cities,
     officers,
     rulers,
+    diplomacy: {},
     rngSeed: rng.seed,
     log: [],
     gameOver: null,
