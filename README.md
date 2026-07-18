@@ -31,8 +31,8 @@ existing per-officer-command loop without requiring a new UI paradigm.
 
 **Still deferred to V1** (per the design doc): the tactical battle grid (unit types,
 terrain, duels, tactics like Fire/Confuse) — a separate UI subsystem, not just a rules
-extension — plus Hide Infiltrator/Rival/Rebel plots, items, galleys, the remaining five
-remaining four scenarios, and the full historical officer roster.
+extension — plus Hide Infiltrator/Rival/Rebel plots, items, galleys, the remaining four
+scenarios, and the full historical officer roster.
 
 **Data fidelity note:** city list/adjacency, officer stats, and formulas are close
 approximations of the original, pending the `[Verify]` research passes called out in the
