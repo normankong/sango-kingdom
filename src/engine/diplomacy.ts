@@ -49,7 +49,7 @@ function requireOwnCity(state: GameState, officerId: number): CmdResult | null {
   const off = state.officers[officerId];
   const city = state.cities[off.cityId];
   if (city.rulerId !== off.rulerId)
-    return { ok: false, message: "Diplomacy must be conducted from one of your own cities." };
+    return { ok: false, message: "外交事務須在我方城池內進行。" };
   return null;
 }
 
@@ -57,18 +57,18 @@ export function proposeAlliance(state: GameState, officerId: number, targetRuler
   const off = state.officers[officerId];
   const err = requireOwnCity(state, officerId);
   if (err) return err;
-  if (off.rulerId === targetRulerId) return { ok: false, message: "You can't ally with yourself." };
+  if (off.rulerId === targetRulerId) return { ok: false, message: "不能與自己締結同盟。" };
   const key = relKey(off.rulerId!, targetRulerId);
   const def = OFFICER_DEFS[officerId];
   return withRng(state, (rng) => {
     const chance = 0.25 + def.chr / 300;
     if (!rng.chance(chance)) {
       state.officers[officerId].status = "done";
-      return { ok: true, message: `${OFFICER_DEFS[targetRulerId].name} declined the offer of alliance.` };
+      return { ok: true, message: `${OFFICER_DEFS[targetRulerId].han}婉拒了同盟的提議。` };
     }
     state.diplomacy[key] = { status: "allied" };
     state.officers[officerId].status = "done";
-    return { ok: true, message: `${OFFICER_DEFS[targetRulerId].name} has agreed to an alliance!` };
+    return { ok: true, message: `${OFFICER_DEFS[targetRulerId].han}同意締結同盟！` };
   });
 }
 
@@ -81,14 +81,14 @@ export function proposeTruce(
   const off = state.officers[officerId];
   const err = requireOwnCity(state, officerId);
   if (err) return err;
-  if (off.rulerId === targetRulerId) return { ok: false, message: "You can't truce with yourself." };
+  if (off.rulerId === targetRulerId) return { ok: false, message: "不能與自己締結停戰。" };
   const key = relKey(off.rulerId!, targetRulerId);
   const def = OFFICER_DEFS[officerId];
   return withRng(state, (rng) => {
     const chance = 0.4 + def.chr / 250;
     state.officers[officerId].status = "done";
     if (!rng.chance(chance)) {
-      return { ok: true, message: `${OFFICER_DEFS[targetRulerId].name} rejected the truce.` };
+      return { ok: true, message: `${OFFICER_DEFS[targetRulerId].han}拒絕了停戰的提議。` };
     }
     let until = { year: state.date.year, month: state.date.month + months };
     while (until.month > 12) {
@@ -97,7 +97,7 @@ export function proposeTruce(
     state.diplomacy[key] = { status: "truce", truceUntil: until };
     return {
       ok: true,
-      message: `${OFFICER_DEFS[targetRulerId].name} accepted a truce until ${until.year}.${until.month}.`,
+      message: `${OFFICER_DEFS[targetRulerId].han}接受停戰，直到 ${until.year} 年 ${until.month} 月。`,
     };
   });
 }
@@ -109,7 +109,7 @@ export function revokeAgreement(state: GameState, officerId: number, targetRuler
   const key = relKey(off.rulerId!, targetRulerId);
   delete state.diplomacy[key];
   state.officers[officerId].status = "done";
-  return { ok: true, message: `Relations with ${OFFICER_DEFS[targetRulerId].name} have been revoked.` };
+  return { ok: true, message: `與${OFFICER_DEFS[targetRulerId].han}的協議已經破棄。` };
 }
 
 /** Demand tribute from a weaker rival; success depends on relative strength + charm. */
@@ -117,7 +117,7 @@ export function threaten(state: GameState, officerId: number, targetRulerId: num
   const off = state.officers[officerId];
   const err = requireOwnCity(state, officerId);
   if (err) return err;
-  if (off.rulerId === targetRulerId) return { ok: false, message: "You can't threaten yourself." };
+  if (off.rulerId === targetRulerId) return { ok: false, message: "不能威嚇自己。" };
   const def = OFFICER_DEFS[officerId];
   const myStrength = relativeStrength(state, off.rulerId!);
   const targetStrength = relativeStrength(state, targetRulerId);
@@ -126,16 +126,16 @@ export function threaten(state: GameState, officerId: number, targetRulerId: num
     const ratio = myStrength / Math.max(1, targetStrength);
     const chance = clamp(0.15 + (ratio - 1) * 0.25 + def.chr / 400, 0.05, 0.85);
     if (!rng.chance(chance)) {
-      return { ok: true, message: `${OFFICER_DEFS[targetRulerId].name} refused to be intimidated.` };
+      return { ok: true, message: `${OFFICER_DEFS[targetRulerId].han}不為所懼，拒絕屈服。` };
     }
     const targetCities = Object.values(state.cities).filter((c) => c.rulerId === targetRulerId);
-    if (targetCities.length === 0) return { ok: true, message: "There is no one left to threaten." };
+    if (targetCities.length === 0) return { ok: true, message: "已無可威嚇的對象。" };
     const richest = targetCities.reduce((a, b) => (a.gold > b.gold ? a : b));
     const tribute = Math.round(richest.gold * 0.3);
     richest.gold -= tribute;
     const myCity = state.cities[off.cityId];
     myCity.gold = clamp(myCity.gold + tribute, 0, 50_000);
-    log(state, "event", `${OFFICER_DEFS[targetRulerId].name} yielded ${tribute} gold to your threat.`);
-    return { ok: true, message: `${OFFICER_DEFS[targetRulerId].name} handed over ${tribute} gold in tribute.` };
+    log(state, "event", `${OFFICER_DEFS[targetRulerId].han}懾於威嚇，獻上 ${tribute} 金。`);
+    return { ok: true, message: `${OFFICER_DEFS[targetRulerId].han}獻上貢金 ${tribute} 兩。` };
   });
 }

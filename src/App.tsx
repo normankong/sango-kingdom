@@ -11,7 +11,7 @@ import type { SaveMeta } from "./save/saveProvider.ts";
 import { CityPanel } from "./ui/CityPanel.tsx";
 import { MapView } from "./ui/MapView.tsx";
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS = ["一月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "十一月", "十二月"];
 
 export function App() {
   const provider = useMemo(() => makeSaveProvider(), []);
@@ -45,8 +45,8 @@ export function App() {
     const newEntries = state.log.length - before;
     showToast(
       newEntries > 0
-        ? `Month ended — ${newEntries} report${newEntries > 1 ? "s" : ""} in the log.`
-        : "Month ended quietly.",
+        ? `本月已結束——共 ${newEntries} 則戰報。`
+        : "本月風平浪靜。",
     );
     setState({ ...state });
   }
@@ -56,9 +56,9 @@ export function App() {
     try {
       await provider.save("slot1", state);
       setSaves(await provider.list());
-      showToast(`Game saved (${provider.name}).`);
+      showToast(`遊戲已儲存（${provider.name}）。`);
     } catch (e) {
-      showToast(`Save failed: ${String(e)}`);
+      showToast(`儲存失敗：${String(e)}`);
     }
   }
 
@@ -69,10 +69,10 @@ export function App() {
         setState(loaded);
         setSelectedCityId(null);
       } else {
-        showToast("No save found.");
+        showToast("找不到存檔。");
       }
     } catch (e) {
-      showToast(`Load failed: ${String(e)}`);
+      showToast(`讀取失敗：${String(e)}`);
     }
   }
 
@@ -102,16 +102,16 @@ export function App() {
     <div className="app">
       <div className="topbar">
         <span className="date">
-          {state.date.year} AD · {MONTHS[state.date.month - 1]}
+          西元 {state.date.year} 年 · {MONTHS[state.date.month - 1]}
         </span>
         <span>
-          {OFFICER_DEFS[state.playerRulerId].han} {OFFICER_DEFS[state.playerRulerId].name} — {playerCityCount}/46 cities
+          {OFFICER_DEFS[state.playerRulerId].han} — {playerCityCount}/46 州郡
         </span>
         <span className="spacer" />
-        <button onClick={handleSave}>Save</button>
-        <button onClick={() => setState(null)}>Title</button>
+        <button onClick={handleSave}>儲存</button>
+        <button onClick={() => setState(null)}>標題畫面</button>
         <button className="primary" onClick={handleEndTurn} disabled={!!state.gameOver}>
-          End Month ▶
+          結束本月 ▶
         </button>
       </div>
       <div className="main">
@@ -120,8 +120,8 @@ export function App() {
           {state.gameOver && (
             <div className="banner">
               {state.gameOver === "victory"
-                ? "🐉 All under heaven is yours — China is unified!"
-                : "Your force has been destroyed. The dream ends here."}
+                ? "🐉 天下已歸掌中——中原一統！"
+                : "麾下勢力已然覆滅，霸業夢碎於此。"}
             </div>
           )}
           {toast && <div className="msg-toast">{toast}</div>}
@@ -131,8 +131,8 @@ export function App() {
             <CityPanel state={state} cityId={selectedCityId} onCommand={runCommand} />
           ) : (
             <div className="city-panel">
-              <h2>Select a city</h2>
-              <div className="subtitle">Click a city on the map to inspect and command it.</div>
+              <h2>請選擇城池</h2>
+              <div className="subtitle">點擊地圖上的城池以檢視並下達指令。</div>
             </div>
           )}
           <LogPanel state={state} />
@@ -146,7 +146,7 @@ function LogPanel({ state }: { state: GameState }) {
   const entries = state.log.slice(-40).reverse();
   return (
     <div className="log-panel">
-      {entries.length === 0 && <div className="entry">The chronicle is empty. Issue commands and end the month.</div>}
+      {entries.length === 0 && <div className="entry">史書尚未落筆，下達指令並結束本月即可留下記載。</div>}
       {entries.map((e, i) => (
         <div key={state.log.length - i} className={`entry ${e.kind}`}>
           <span className="d">{e.date.year}.{e.date.month}</span>
@@ -172,18 +172,18 @@ function TitleScreen(props: {
     <div className="title-screen">
       <h1>三國志</h1>
       <div className="sub">
-        Sango Kingdom — a web remake of Romance of the Three Kingdoms III ·{" "}
-        {props.cloud ? "☁ Firebase cloud saves" : "saves in browser storage (Firebase not configured)"}
+        三國志 網頁重製版 ·{" "}
+        {props.cloud ? "☁ Firebase 雲端存檔" : "存檔於瀏覽器（未設定 Firebase）"}
       </div>
       <div className="cmd-row">
-        <label>Scenario:</label>
+        <label>劇本：</label>
         <select value={scenarioId} onChange={(e) => setScenarioId(e.target.value)}>
           {scenarios.map((s) => (
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}
         </select>
       </div>
-      <div className="sub">{scenario.name} — choose your ruler:</div>
+      <div className="sub">{scenario.name} — 請選擇君主：</div>
       <div className="force-grid">
         {scenario.forces.map((f) => {
           const d = OFFICER_DEFS[f.rulerId];
@@ -191,10 +191,10 @@ function TitleScreen(props: {
             <button key={f.rulerId} className="force-card" onClick={() => props.onNewGame(scenario, f.rulerId)}>
               <div className="name">
                 <span className="dot" style={{ background: f.color }} />
-                {d.han} {d.name}
+                {d.han}
               </div>
               <div className="info">
-                {f.cities.length} {f.cities.length === 1 ? "city" : "cities"} · {f.officerIds.length} officers · {f.persona}
+                {f.cities.length} 城 · {f.officerIds.length} 名武將 · {PERSONA_LABELS[f.persona]}
               </div>
             </button>
           );
@@ -204,7 +204,7 @@ function TitleScreen(props: {
         <div>
           {props.saves.map((s) => (
             <button key={s.slot} onClick={() => props.onLoad(s.slot)}>
-              Load: {OFFICER_DEFS[s.playerRulerId]?.name ?? "?"} — {s.year} AD ({new Date(s.updatedAt).toLocaleString()})
+              讀取：{OFFICER_DEFS[s.playerRulerId]?.han ?? "？"} — 西元 {s.year} 年（{new Date(s.updatedAt).toLocaleString()}）
             </button>
           ))}
         </div>
@@ -212,3 +212,9 @@ function TitleScreen(props: {
     </div>
   );
 }
+
+const PERSONA_LABELS: Record<string, string> = {
+  aggressive: "好戰",
+  builder: "內政",
+  balanced: "均衡",
+};

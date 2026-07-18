@@ -24,7 +24,7 @@ export interface ScenarioDef {
 
 export const SCENARIO_190: ScenarioDef = {
   id: "s190",
-  name: "190 AD — The Coalition Against Dong Zhuo",
+  name: "西元190年——討董聯軍",
   startYear: 190,
   startMonth: 1,
   forces: [

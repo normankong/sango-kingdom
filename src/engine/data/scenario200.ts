@@ -99,7 +99,7 @@ function buildFreeOfficers(): Record<number, number> {
 
 export const SCENARIO_200: ScenarioDef = {
   id: "s200",
-  name: "200 AD — Prelude to Guandu",
+  name: "西元200年——官渡前夕",
   startYear: 200,
   startMonth: 1,
   forces: FORCES,

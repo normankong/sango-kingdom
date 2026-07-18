@@ -58,15 +58,6 @@ export function MapView(props: {
             >
               {def.han}
             </text>
-            <text
-              x={def.x} y={def.y + 27}
-              textAnchor="middle"
-              fill="#8a7d66"
-              fontSize={9}
-              style={{ userSelect: "none" }}
-            >
-              {def.name}
-            </text>
           </g>
         );
       })}

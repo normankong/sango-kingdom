@@ -38,7 +38,7 @@ function useOfficer(state: GameState, officerId: number) {
 
 export function setTaxRate(state: GameState, cityId: number, rate: number): CmdResult {
   state.cities[cityId].taxRate = clamp(Math.round(rate), 0, 100);
-  return { ok: true, message: `Tax rate set to ${state.cities[cityId].taxRate}%.` };
+  return { ok: true, message: `稅率已調整為 ${state.cities[cityId].taxRate}%。` };
 }
 
 export function develop(
@@ -50,7 +50,7 @@ export function develop(
   const city = state.cities[cityId];
   const def = OFFICER_DEFS[officerId];
   const cost = DEVELOP_COST[kind];
-  if (city.gold < cost) return { ok: false, message: `Not enough gold (need ${cost}).` };
+  if (city.gold < cost) return { ok: false, message: `資金不足（需要 ${cost} 金）。` };
   city.gold -= cost;
   return withRng(state, (rng) => {
     const gain = 3 + Math.floor(def.pol / 12) + rng.i(0, 3);
@@ -58,16 +58,16 @@ export function develop(
     if (kind === "economy") {
       const eGain = def.pol * 2 + rng.i(0, 60);
       city.economy = clamp(city.economy + eGain, 0, 9999);
-      msg = `${def.name} developed commerce (+${eGain} economy).`;
+      msg = `${def.han}振興商業（商業 +${eGain}）。`;
     } else if (kind === "land") {
       city.landDev = clamp(city.landDev + gain, 0, 100);
-      msg = `${def.name} developed land (+${gain}).`;
+      msg = `${def.han}開墾土地（開發度 +${gain}）。`;
     } else if (kind === "flood") {
       city.floodControl = clamp(city.floodControl + gain, 0, 100);
-      msg = `${def.name} improved flood control (+${gain}).`;
+      msg = `${def.han}興修堤防（治水 +${gain}）。`;
     } else {
       city.cultivation = clamp(city.cultivation + gain + 2, 0, 100);
-      msg = `${def.name} cultivated the fields (+${gain + 2}).`;
+      msg = `${def.han}勸課農桑（農業 +${gain + 2}）。`;
     }
     city.support = clamp(city.support + 1, 0, 100);
     useOfficer(state, officerId);
@@ -85,14 +85,14 @@ export function draft(
   const city = state.cities[cityId];
   const def = OFFICER_DEFS[officerId];
   hundreds = Math.floor(hundreds);
-  if (hundreds <= 0) return { ok: false, message: "Nothing to draft." };
+  if (hundreds <= 0) return { ok: false, message: "沒有可徵募的兵員。" };
   const gold = hundreds * 10;
   const food = hundreds * 100;
   const men = hundreds * 100;
-  if (city.gold < gold) return { ok: false, message: `Not enough gold (need ${gold}).` };
-  if (city.food < food) return { ok: false, message: `Not enough food (need ${food}).` };
+  if (city.gold < gold) return { ok: false, message: `資金不足（需要 ${gold} 金）。` };
+  if (city.food < food) return { ok: false, message: `糧草不足（需要 ${food} 石）。` };
   if (city.population < men * 4)
-    return { ok: false, message: "The population cannot support that draft." };
+    return { ok: false, message: "人口不足，無法承受此次徵兵。" };
   city.gold -= gold;
   city.food -= food;
   city.population -= men;
@@ -103,17 +103,17 @@ export function draft(
   city.soldiers += men;
   city.support = clamp(city.support - Math.ceil(hundreds / 20), 0, 100);
   useOfficer(state, officerId);
-  return { ok: true, message: `${def.name} drafted ${men} soldiers.` };
+  return { ok: true, message: `${def.han}徵募了 ${men} 名士兵。` };
 }
 
 export function train(state: GameState, cityId: number, officerId: number): CmdResult {
   const city = state.cities[cityId];
   const def = OFFICER_DEFS[officerId];
-  if (city.soldiers <= 0) return { ok: false, message: "No soldiers to train." };
+  if (city.soldiers <= 0) return { ok: false, message: "沒有士兵可供訓練。" };
   const gain = 8 + Math.floor(def.war / 10) + Math.floor(def.armyCmd / 20);
   city.training = clamp(city.training + gain, 0, 100);
   useOfficer(state, officerId);
-  return { ok: true, message: `${def.name} trained the troops (+${gain} training).` };
+  return { ok: true, message: `${def.han}操練士兵（訓練度 +${gain}）。` };
 }
 
 /** Move an officer (optionally with soldiers) to an adjacent friendly city. */
@@ -127,9 +127,9 @@ export function move(
   const from = state.cities[off.cityId];
   const to = state.cities[toCityId];
   if (!CITY_DEFS[from.id].adjacency.includes(toCityId))
-    return { ok: false, message: "Target city is not adjacent." };
+    return { ok: false, message: "目標城市並不相鄰。" };
   if (to.rulerId !== off.rulerId)
-    return { ok: false, message: "Target city is not yours (use War to invade)." };
+    return { ok: false, message: "目標城市並非我方所有（請使用「進攻」以攻取）。" };
   soldiers = clamp(Math.floor(soldiers), 0, from.soldiers);
   from.soldiers -= soldiers;
   to.soldiers += soldiers;
@@ -145,7 +145,7 @@ export function move(
   useOfficer(state, officerId);
   return {
     ok: true,
-    message: `${OFFICER_DEFS[officerId].name} moved to ${CITY_DEFS[toCityId].name}${soldiers ? ` with ${soldiers} soldiers` : ""}.`,
+    message: `${OFFICER_DEFS[officerId].han}移駐${CITY_DEFS[toCityId].han}${soldiers ? `，率兵 ${soldiers} 人` : ""}。`,
   };
 }
 
@@ -160,7 +160,7 @@ export function search(state: GameState, cityId: number, officerId: number): Cmd
     if (hidden.length === 0 || !rng.chance(0.35 + def.chr / 200)) {
       const found = rng.i(10, 60);
       state.cities[cityId].gold = clamp(state.cities[cityId].gold + found, 0, 50000);
-      return { ok: true, message: `${def.name} found no one, but recovered ${found} gold.` };
+      return { ok: true, message: `${def.han}遍尋不獲賢才，卻拾得 ${found} 金。` };
     }
     const target = hidden[rng.i(0, hidden.length - 1)];
     const tDef = OFFICER_DEFS[target.id];
@@ -169,9 +169,9 @@ export function search(state: GameState, cityId: number, officerId: number): Cmd
       target.rulerId = state.cities[cityId].rulerId;
       target.loyalty = 70;
       target.status = "available";
-      return { ok: true, message: `${def.name} found ${tDef.name}, who joins your cause!` };
+      return { ok: true, message: `${def.han}尋得${tDef.han}，並說服其歸順！` };
     }
-    return { ok: true, message: `${def.name} found ${tDef.name}, but was rebuffed.` };
+    return { ok: true, message: `${def.han}尋得${tDef.han}，卻遭婉拒。` };
   });
 }
 
@@ -179,12 +179,12 @@ export function search(state: GameState, cityId: number, officerId: number): Cmd
 export function reward(state: GameState, officerId: number, gold = 100): CmdResult {
   const off = state.officers[officerId];
   const city = state.cities[off.cityId];
-  if (city.gold < gold) return { ok: false, message: `Not enough gold (need ${gold}).` };
+  if (city.gold < gold) return { ok: false, message: `資金不足（需要 ${gold} 金）。` };
   return withRng(state, (rng) => {
     city.gold -= gold;
     const gain = 3 + Math.floor(gold / 50) + rng.i(0, 3);
     off.loyalty = clamp(off.loyalty + gain, 0, 100);
-    return { ok: true, message: `${OFFICER_DEFS[officerId].name}'s loyalty rose to ${off.loyalty}.` };
+    return { ok: true, message: `${OFFICER_DEFS[officerId].han}的忠誠度提升至 ${off.loyalty}。` };
   });
 }
 
@@ -211,11 +211,11 @@ export function war(
   const from = state.cities[fromCityId];
   const to = state.cities[toCityId];
   if (!CITY_DEFS[fromCityId].adjacency.includes(toCityId))
-    return { ok: false, message: "Target city is not adjacent." };
-  if (to.rulerId === from.rulerId) return { ok: false, message: "That city is already yours." };
-  if (officerIds.length === 0) return { ok: false, message: "Select at least one officer to lead." };
+    return { ok: false, message: "目標城市並不相鄰。" };
+  if (to.rulerId === from.rulerId) return { ok: false, message: "該城已是我方所有。" };
+  if (officerIds.length === 0) return { ok: false, message: "請至少選擇一名將領統兵出征。" };
   soldiers = clamp(Math.floor(soldiers), 0, from.soldiers);
-  if (soldiers <= 0) return { ok: false, message: "No soldiers committed." };
+  if (soldiers <= 0) return { ok: false, message: "未派遣任何士兵。" };
   const attackerRulerId = from.rulerId!;
 
   return withRng(state, (rng) => {
@@ -290,8 +290,8 @@ export function war(
       }
       to.governorId = officerIds[0];
 
-      const atkName = OFFICER_DEFS[attackerRulerId].name;
-      log(state, "battle", `${atkName} captured ${CITY_DEFS[toCityId].name}! (lost ${atkLosses}, slew ${defLosses})`);
+      const atkName = OFFICER_DEFS[attackerRulerId].han;
+      log(state, "battle", `${atkName}攻陷${CITY_DEFS[toCityId].han}！（我軍損失 ${atkLosses}，敵軍損失 ${defLosses}）`);
 
       // Ruler elimination check.
       if (oldRuler !== null && !Object.values(state.cities).some((c) => c.rulerId === oldRuler)) {
@@ -302,10 +302,10 @@ export function war(
             o.loyalty = 40;
           }
         }
-        log(state, "event", `The force of ${OFFICER_DEFS[oldRuler].name} has been destroyed!`);
+        log(state, "event", `${OFFICER_DEFS[oldRuler].han}的勢力已被消滅！`);
         if (oldRuler === state.playerRulerId) {
           state.gameOver = "defeat";
-          log(state, "defeat", "You have lost your last city. The dream is over.");
+          log(state, "defeat", "最後一座城池已失守，霸業夢碎於此。");
         }
       }
       const playerCities = Object.values(state.cities).filter(
@@ -313,15 +313,15 @@ export function war(
       ).length;
       if (playerCities === CITY_COUNT) {
         state.gameOver = "victory";
-        log(state, "victory", "All 46 cities are yours. China is unified!");
+        log(state, "victory", "全 46 州郡已盡歸掌中，天下歸於一統！");
       }
-      return { ok: true, message: `Victory! ${CITY_DEFS[toCityId].name} is taken.`, battle: report };
+      return { ok: true, message: `勝利！${CITY_DEFS[toCityId].han}已被攻取。`, battle: report };
     } else {
       // Attackers retreat with survivors.
       from.soldiers += soldiers - atkLosses;
       to.soldiers -= defLosses;
-      log(state, "battle", `Attack on ${CITY_DEFS[toCityId].name} was repelled (lost ${atkLosses}).`);
-      return { ok: true, message: `Defeat... the assault on ${CITY_DEFS[toCityId].name} failed.`, battle: report };
+      log(state, "battle", `進攻${CITY_DEFS[toCityId].han}遭擊退（損失 ${atkLosses} 人）。`);
+      return { ok: true, message: `敗北……進攻${CITY_DEFS[toCityId].han}的行動失敗了。`, battle: report };
     }
   });
 }
@@ -337,36 +337,36 @@ export function buyFood(state: GameState, cityId: number, officerId: number, amo
   const city = state.cities[cityId];
   amount = Math.max(0, Math.floor(amount));
   const cost = Math.round(amount * FOOD_BUY_PRICE);
-  if (amount <= 0) return { ok: false, message: "Nothing to buy." };
-  if (city.gold < cost) return { ok: false, message: `Not enough gold (need ${cost}).` };
+  if (amount <= 0) return { ok: false, message: "沒有可購買的數量。" };
+  if (city.gold < cost) return { ok: false, message: `資金不足（需要 ${cost} 金）。` };
   city.gold -= cost;
   city.food = clamp(city.food + amount, 0, 3_000_000);
   useOfficer(state, officerId);
-  return { ok: true, message: `Bought ${amount.toLocaleString()} food for ${cost} gold.` };
+  return { ok: true, message: `以 ${cost} 金購入 ${amount.toLocaleString()} 石糧草。` };
 }
 
 export function sellFood(state: GameState, cityId: number, officerId: number, amount: number): CmdResult {
   const city = state.cities[cityId];
   amount = clamp(Math.floor(amount), 0, city.food);
-  if (amount <= 0) return { ok: false, message: "Nothing to sell." };
+  if (amount <= 0) return { ok: false, message: "沒有可出售的數量。" };
   const gain = Math.round(amount * FOOD_SELL_PRICE);
   city.food -= amount;
   city.gold = clamp(city.gold + gain, 0, 50_000);
   useOfficer(state, officerId);
-  return { ok: true, message: `Sold ${amount.toLocaleString()} food for ${gain} gold.` };
+  return { ok: true, message: `售出 ${amount.toLocaleString()} 石糧草，得 ${gain} 金。` };
 }
 
 export function buyEquipment(state: GameState, cityId: number, officerId: number, amount: number): CmdResult {
   const city = state.cities[cityId];
   amount = Math.max(0, Math.floor(amount));
   const cost = Math.round(amount * EQUIPMENT_PRICE);
-  if (amount <= 0) return { ok: false, message: "Nothing to buy." };
-  if (city.gold < cost) return { ok: false, message: `Not enough gold (need ${cost}).` };
-  if (city.equipment >= 9999) return { ok: false, message: "Armory is already full." };
+  if (amount <= 0) return { ok: false, message: "沒有可購買的數量。" };
+  if (city.gold < cost) return { ok: false, message: `資金不足（需要 ${cost} 金）。` };
+  if (city.equipment >= 9999) return { ok: false, message: "軍械庫已滿。" };
   city.gold -= cost;
   city.equipment = clamp(city.equipment + amount, 0, 9999);
   useOfficer(state, officerId);
-  return { ok: true, message: `Bought ${amount.toLocaleString()} arms for ${cost} gold.` };
+  return { ok: true, message: `以 ${cost} 金購入 ${amount.toLocaleString()} 件軍備。` };
 }
 
 // --- Emergency (§5): Special Tax. An immediate levy outside the normal
@@ -379,7 +379,7 @@ export function specialTax(state: GameState, cityId: number, officerId: number):
     city.gold = clamp(city.gold + amount, 0, 50_000);
     city.support = clamp(city.support - (8 + rng.i(0, 6)), 0, 100);
     useOfficer(state, officerId);
-    return { ok: true, message: `Levied a special tax: +${amount} gold (support fell).` };
+    return { ok: true, message: `徵收臨時稅賦：+${amount} 金（民心下降）。` };
   });
 }
 
@@ -391,22 +391,22 @@ export function setAutoGovern(state: GameState, cityId: number, enabled: boolean
   return {
     ok: true,
     message: enabled
-      ? `${CITY_DEFS[cityId].name} will now be governed automatically.`
-      : `${CITY_DEFS[cityId].name} is back under direct control.`,
+      ? `${CITY_DEFS[cityId].han}將交由內政官自動處理。`
+      : `${CITY_DEFS[cityId].han}恢復由主公親自治理。`,
   };
 }
 
 /** Dismiss one of your own officers back into the free pool. */
 export function fireOfficer(state: GameState, targetOfficerId: number): CmdResult {
   const target = state.officers[targetOfficerId];
-  if (target.rulerId === null) return { ok: false, message: "That officer is already free." };
+  if (target.rulerId === null) return { ok: false, message: "該武將已是在野之身。" };
   if (target.id === target.rulerId)
-    return { ok: false, message: "The ruler cannot fire themself." };
-  const name = OFFICER_DEFS[targetOfficerId].name;
+    return { ok: false, message: "主公不能罷免自己。" };
+  const name = OFFICER_DEFS[targetOfficerId].han;
   target.rulerId = null;
   target.loyalty = 50;
   target.status = "available";
-  return { ok: true, message: `${name} has been dismissed from service.` };
+  return { ok: true, message: `${name}已被罷免，退隱在野。` };
 }
 
 /** Appoint a stationed officer as the city's governor. */
@@ -414,7 +414,7 @@ export function appointGovernor(state: GameState, cityId: number, targetOfficerI
   const city = state.cities[cityId];
   const target = state.officers[targetOfficerId];
   if (target.cityId !== cityId || target.rulerId !== city.rulerId)
-    return { ok: false, message: "That officer is not stationed here." };
+    return { ok: false, message: "該武將並未駐守於此城。" };
   city.governorId = targetOfficerId;
-  return { ok: true, message: `${OFFICER_DEFS[targetOfficerId].name} appointed governor of ${CITY_DEFS[cityId].name}.` };
+  return { ok: true, message: `${OFFICER_DEFS[targetOfficerId].han}已被任命為${CITY_DEFS[cityId].han}太守。` };
 }

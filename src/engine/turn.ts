@@ -29,7 +29,7 @@ function monthlySettlement(state: GameState, rng: Rng) {
       city.food = 0;
       city.support = clamp(city.support - 3, 0, 100);
       if (isPlayer && deserters > 0)
-        log(state, "economy", `Food ran out in ${cityName(state, city.id)} — ${deserters} soldiers deserted.`);
+        log(state, "economy", `${cityName(state, city.id)}糧草告罄，${deserters} 名士兵逃亡。`);
     }
 
     // Support drifts with tax policy.
@@ -47,7 +47,7 @@ function monthlySettlement(state: GameState, rng: Rng) {
     if (month === 1) {
       const tax = Math.round(city.economy * (city.taxRate / 100) * (0.5 + city.support / 200) * 2);
       city.gold = clamp(city.gold + tax, 0, 50_000);
-      if (isPlayer) log(state, "economy", `${cityName(state, city.id)}: collected ${tax} gold in taxes.`);
+      if (isPlayer) log(state, "economy", `${cityName(state, city.id)}：徵得稅金 ${tax} 兩。`);
     }
 
     // July: harvest + cultivation reset.
@@ -60,7 +60,7 @@ function monthlySettlement(state: GameState, rng: Rng) {
       city.food = clamp(city.food + harvest, 0, 3_000_000);
       city.cultivation = 0;
       city.support = clamp(city.support - Math.max(0, Math.floor(city.taxRate / 20) - 1), 0, 100);
-      if (isPlayer) log(state, "economy", `${cityName(state, city.id)}: harvest brought in ${harvest} food.`);
+      if (isPlayer) log(state, "economy", `${cityName(state, city.id)}：秋收得糧 ${harvest} 石。`);
     }
 
     // Random events.
@@ -68,16 +68,16 @@ function monthlySettlement(state: GameState, rng: Rng) {
       city.landDev = clamp(city.landDev - 10, 0, 100);
       city.economy = clamp(city.economy - 150, 0, 9999);
       city.population = Math.round(city.population * 0.97);
-      log(state, "event", `Flood in ${cityName(state, city.id)}!`);
+      log(state, "event", `${cityName(state, city.id)}遭逢水患！`);
     }
     if (rng.chance(0.015) && month >= 7 && month <= 9) {
       city.cultivation = Math.round(city.cultivation / 2);
-      log(state, "event", `Locust swarm devastates ${cityName(state, city.id)}!`);
+      log(state, "event", `蝗災肆虐${cityName(state, city.id)}！`);
     }
     if (rng.chance(0.008)) {
       city.population = Math.round(city.population * 0.95);
       city.support = clamp(city.support - 5, 0, 100);
-      log(state, "event", `Epidemic strikes ${cityName(state, city.id)}.`);
+      log(state, "event", `${cityName(state, city.id)}爆發疫病。`);
     }
   }
 
@@ -97,7 +97,7 @@ function monthlySettlement(state: GameState, rng: Rng) {
           if (o.rulerId === ruler.id) o.loyalty = clamp(o.loyalty - 5, 0, 100);
         }
         if (ruler.id === state.playerRulerId)
-          log(state, "economy", "You could not pay salaries — loyalty suffers across your force.");
+          log(state, "economy", "俸祿未能發放——全軍忠誠度受挫。");
       }
     }
   }
@@ -107,17 +107,17 @@ function monthlySettlement(state: GameState, rng: Rng) {
     if (o.rulerId === null || o.id === o.rulerId) continue;
     if (o.loyalty < 100 && rng.chance(0.25)) o.loyalty = clamp(o.loyalty - 1, 0, 100);
     if (o.loyalty < 40 && rng.chance(0.08)) {
-      const name = OFFICER_DEFS[o.id].name;
+      const name = OFFICER_DEFS[o.id].han;
       const wasPlayer = o.rulerId === state.playerRulerId;
       o.rulerId = null;
       o.loyalty = 50;
-      if (wasPlayer) log(state, "event", `${name} has abandoned your cause!`);
+      if (wasPlayer) log(state, "event", `${name}已離棄我方陣營！`);
     }
   }
 }
 
 function cityName(_state: GameState, id: number): string {
-  return CITY_DEFS[id].name;
+  return CITY_DEFS[id].han;
 }
 
 /** Ends the player's month: AI rulers act, then the month settles and advances. */
